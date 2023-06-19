@@ -60,7 +60,7 @@
 #         self.name = 'ma3'
 #         self.vars = ['close']
 #
-#     def run(self, d):
+#     def run(self, d)：
 #         return d["close"].rolling(3).mean()
 #
 # """
