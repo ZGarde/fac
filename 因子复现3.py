@@ -2031,21 +2031,23 @@ class F20230619:
         self.N = N
         self.N1 = N1
         self.N2 = N2
+        
 
     def run(self, d):
+        # Assuming 'd' is a pandas DataFrame and 'close' is one of its columns
         close = d['close']
 
-        um = close.diff().gt(0).rolling(self.N1).std().shift(1)
-        dm = close.diff().lt(0).rolling(self.N1).std().shift(1)
+        # Calculate standard deviation of price changes
+        close_diff = close.diff()
+        std_dev = close_diff.rolling(window=self.N).std()
 
-        ua = um.rolling(self.N2).mean()
-        da = dm.rolling(self.N2).mean()
+        # Calculate RVI
+        up_std_dev = std_dev.where(close_diff > 0).fillna(0).rolling(window=self.N1).mean()
+        down_std_dev = std_dev.where(close_diff < 0).fillna(0).rolling(window=self.N2).mean()
 
-        rs = 100 * ua / (ua + da)
-        rvi = rs.rolling(2).mean()
+        rvi = 100 * up_std_dev / (up_std_dev + down_std_dev)
 
         return rvi
-
 
 
 '''
@@ -2372,19 +2374,16 @@ class F20231016:
         self.N2 = N2
         self.N3 = N3
 
-    def calculate_ROC(self, data, window):
-        diff = data.diff(window)
-        shift = data.shift(window)
-        return (diff / shift) * 100
-
-    def calculate_WMA(self, data, window):
-        weights = range(1, window + 1)
-        return data.rolling(window).apply(lambda x: sum(weights * x) / sum(weights), raw=True)
 
     def run(self, d):
-        ROC1 = self.calculate_ROC(d['close'], self.N1)
-        ROC2 = self.calculate_ROC(d['close'], self.N2)
-        COPPOCK = self.calculate_WMA(ROC1 + ROC2, self.N3)
+        close=d['close']
+        high=d['high']
+        low=d['low']
+        
+        r1=((close-close.shift(self.N1))/close.shift(self.N1))*100
+        r2=((close-close.shift(self.N2))/close.shift(self.N2))*100
+        rc=r1+r2
+        COPPOCK=WMA(rc,self.N3)
         return COPPOCK
 '''
 """
@@ -2535,9 +2534,15 @@ class F20231119:
         self.vars = ['close', 'high', 'low', 'vol']
 
     def run(self, d):
-        mid = ((2 * d['close'] - d['high'] - d['low']) / (d['high'] + d['low'])) * d['vol']
-        cho = EMA(mid, self.N1) - EMA(mid, self.N2)
+        close=d['close']
+        high=d['high']
+        low=d['low']
+        vol=d['vol']
+        
+        mid=(vol*(2*close-high-low)/(high+low)).cumsum()
+        cho=EMA(mid,self.N1)-EMA(mid,self.N2)
         return cho
+
 
 
 
