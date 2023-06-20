@@ -1644,7 +1644,7 @@ class F20230305:
         tr = (high+low+close > high.shift(1)+low.shift(1)+close.shift(1)).astype(int) * 2 - 1
         dm = high - low
         cm = pd.Series(index=dm.index)  # 初始化 cm
-        cm = cm.where(tr == tr.shift(1), (cm.shift(1) + dm).iloc[:, 0], (dm.shift(1) + dm).iloc[:, 0])
+        cm = cm.where(tr == tr.shift(1), (cm.shift(1) + dm).iloc[0, 0], (dm.shift(1) + dm).iloc[0, 0])
         vf = vol * (2 * (dm / cm - 1)).abs() * tr * 100
         kvo = EMA(vf, self.N1) - EMA(vf, self.N2)  # 确保 EMA 函数是可用的
 
