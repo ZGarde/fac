@@ -1636,18 +1636,20 @@ class F20230305:
         self.vars = ['close', 'high', 'low', 'vol']
 
     def run(self, d):
+        close = d['close']
         high = d['high']
         low = d['low']
-        close = d['close']
         vol = d['vol']
-        
-        tr = (high+low+close > high.shift(1)+low.shift(1)+close.shift(1)).astype(int) * 2 - 1
+        tr1 = 1
+        tr01 = -1
+        tr = (high + close + low > high.shift(1) + close.shift(1) + low.shift(1)) * tr1 + (high + close + low < high.shift(1) + close.shift(1) + low.shift(1)) * tr01
         dm = high - low
-        cm = pd.Series(index=dm.index)  # 初始化 cm
-        cm = cm.where(tr == tr.shift(1), (cm.shift(1) + dm).iloc[0, 0], (dm.shift(1) + dm).iloc[0, 0])
-        vf = vol * (2 * (dm / cm - 1)).abs() * tr * 100
-        kvo = EMA(vf, self.N1) - EMA(vf, self.N2)  # 确保 EMA 函数是可用的
-
+        cm = pd.Series(0, index=dm.index)
+        cm1 = cm.shift(1) + dm
+        cm01 = dm.shift(1) + dm
+        cm = (tr == tr.shift(1)) * cm1 + (tr != tr.shift(1)) * cm01
+        vf = vol * abs(2 * (dm / cm - 1)) * tr * 100
+        kvo = vf.ewm(span=self.N1).mean() - vf.ewm(span=self.N2).mean()
         return kvo
 
 
