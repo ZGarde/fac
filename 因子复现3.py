@@ -1629,28 +1629,20 @@ N1=34,N2=55
 #         return KVO2 / 1000 / 2
 
 class F20230305:
-    def __init__(self, N1=34, N2=55):
+    def __init__(self, N=34, M1=55, M2=13):
         self.name = 'kvo'
-        self.N1 = N1
-        self.N2 = N2
+        self.N = N
+        self.M1 = M1
+        self.M2 = M2
         self.vars = ['close', 'high', 'low', 'vol']
 
     def run(self, d):
-        close = d['close']
-        high = d['high']
-        low = d['low']
-        vol = d['vol']
-        tr1 = 1
-        tr01 = -1
-        tr = (high + close + low > high.shift(1) + close.shift(1) + low.shift(1)) * tr1 + (high + close + low < high.shift(1) + close.shift(1) + low.shift(1)) * tr01
-        dm = high - low
-        cm = pd.Series(0, index=dm.index)
-        cm1 = cm.shift(1) + dm
-        cm01 = dm.shift(1) + dm
-        cm = (tr == tr.shift(1)) * cm1 + (tr != tr.shift(1)) * cm01
-        vf = vol * abs(2 * (dm / cm - 1)) * tr * 100
-        kvo = vf.ewm(span=self.N1).mean() - vf.ewm(span=self.N2).mean()
-        return kvo
+      
+         MID = (d['high'] + d['low'] + d['close']) / 3
+         SV = d['vol'] * (MID.diff(1) > 0) - d['vol'] * (MID.diff(1) <= 0)
+         KVO = EMA(SV, self.N) - EMA(SV, self.M1)
+         KVO2 = EMA(KVO, self.M2)
+         return KVO2 / 1000 / 2
 
 
 '''
