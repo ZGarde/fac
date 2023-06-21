@@ -1739,7 +1739,7 @@ TEMA =3*EMA1-3*EMA2+EMA3
 
 
 class F20230404:
-    def __init__(self, N=5, REAL='close'):
+    def __init__(self, N=5, REAL='vol'):
         self.name = 'tema'
         self.REAL = REAL
         self.vars = [REAL]
@@ -1825,22 +1825,21 @@ class F20230413:
         high = d['high']
         low = d['low']
         close = d['close']
-        close_prev = close.shift(1)
-        tr = high - low
-        tr = tr.where(tr >= (high - close_prev).abs(), (high - close_prev).abs())
-        tr = tr.where(tr >= (low - close_prev).abs(), (low - close_prev).abs())
-
+        tr1 = high - low
+        tr2 = (close.shift(1)-high).abs()
+        tr3 = (close.shift(1)-low).abs()
+        tr = ((tr1>tr2) & (tr1>tr3)).astype(int)*tr1+((tr2>tr1) & (tr2>tr3)).astype(int)*tr2+((tr3>tr1) & (tr3>tr2)).astype(int)*tr3
         # 计算W
-        m = close.diff()
-        m[m == 0] = 1
-        w = tr
-        w[close > close_prev] = tr / m
+        w1=tr/(close-close.shift(1))
+        w2=tr
+        w=(close>close.shift(1))*w1+(close<=close.shift(1))*w2            
 
         # 计算SR
-        m2 = w.rolling(self.N1).apply(lambda x: x.max() - x.min())
-        m2[m2 == 0] = 1
-        sr = (w - w.rolling(self.N1).min()) / m2 * 100
-
+        w_max= w.rolling(self.N1).max()
+        w_min = w.rolling(self.N1).min()
+        sr1=(w-w_min)/(w_max-w_min)*100
+        sr2=(w-w_min)*100
+        sr=(w_max>w_min)*sr1+(w_max<=w_min)*sr2
         # 计算RI
         ri = EMA(sr, self.N2)
 
@@ -1878,11 +1877,13 @@ class F20230427:
 
     def run(self, d):
         close = d['close']
-        volume = d['vol']
+        vol = d['vol']
 
-        obv = (volume * (~close.diff().le(0) * 2 - 1)).cumsum()
+        # 计算OBV
+        obv = (close.diff(1) > 0) * vol - (close.diff(1) < 0) * vol
+        obv = obv.cumsum()
+
         return obv
-
 '''
 """
 MFI指标是RSI扩展指标，MFI指标用成交金额代替的指数，是某一时间周期内上涨的成交量
@@ -1973,11 +1974,15 @@ class  F20230526:
 
     def run(self, d):
         close = d['close']
-        volume = d['vol']
+        vol = d['vol']
 
-        pvt = ((close - close.shift(1)) / close.shift(1) * volume).cumsum()
+        # Calculate the daily return
+        daily_return = close.pct_change()
+
+        # Calculate PVT
+        pvt = (daily_return * vol).cumsum()
+
         return pvt
-
 '''
 """
 VHF指标用来判断当前行情处于趋势阶段还是振荡阶段，类似MACD等指标也能帮助识别行情趋势，
@@ -2102,10 +2107,15 @@ class F20230717:
         low = d['low']
         vol = d['vol']
 
-        mm = ((high - low) - (high.shift(1) - low.shift(1))) / 2
-        br = vol / (high - low)
-        emv = mm / br
-        emv = emv.rolling(self.N).mean()
+        # Calculate the midpoint move
+        midpoint_move = ((high + low) / 2) - ((high.shift(1) + low.shift(1)) / 2)
+
+        # Calculate the box ratio
+        box_ratio = (vol / 1e8) / (high - low)
+
+        # Calculate EMV
+        emv = midpoint_move / box_ratio
+        emv = emv.rolling(window=self.N).mean()
 
         return emv
 
@@ -2198,11 +2208,12 @@ class F20230817:
         self.vars = ['vol']
 
     def run(self, d):
-        SHORT = EMA(d['vol'], self.N1)
-        LONG = EMA(d['vol'], self.N2)
-        DIFF = SHORT - LONG
-        DEA = EMA(DIFF, self.M)
-        VMACD = DIFF - DEA
+        vol=d['vol']
+        short=EMA(vol,self.N1)
+        long = EMA(vol,self.N2)
+        diff = short-long
+        dea = EMA(diff,self.M)
+        VMACD=diff-dea
         return VMACD
 
 
@@ -2225,10 +2236,14 @@ class F20230827:
         self.vars = ['high', 'low', 'close']
 
     def run(self, d):
-        A = d['high'] - d['low']
-        B = (d['high'] - d['close'].shift(1)).abs()
-        C = (d['low'] - d['close'].shift(1)).abs()
-        TR = ((A >= B) & (A >= C)) * A + ((B > A) & (B >= C)) * B + ((C > A) & (C > B)) * C
+        high=d['high']
+        low=d['low']
+        close=d['close']
+        A = high-low
+        B = (high-close.shift(1)).abs()
+       
+        C = (low-close.shift(1)).abs()
+        TR = ((A > B) & (A > C)) * A + ((B > A) & (B > C)) * B + ((C > A) & (C > B)) * C
         ATR = EMA(TR, self.N)
         return ATR
 
